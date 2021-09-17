@@ -1,4 +1,5 @@
 import re
+import os
 
 import asyncio
 import discord
@@ -6,18 +7,58 @@ from asyncio import sleep
 from discord.ext import commands
 from ytdl import YTDLSource
 
+from language import lang
+
+
 class MusicBot(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.actual_url = None
+        self.actual = {'url': None, 'id': None}
         # Check if the timestamp matches with the 99:99 format
         self.timestamp_format = re.compile(r'^(?:([01]?\d|[0-9][0-9]):([0-5]?\d))$')
         self.song_queue = []
         self.playing = False
         self.actual_message = None
+        self.waiting_time = 30
 
     def on_same_channel(self, ctx):
+        """
+        Checks if the author and the bot are in the same channel
+        """
         return ctx.author.voice.channel and ctx.author.voice.channel == ctx.voice_client.channel
+
+    def delete_files(self):
+        """
+        Deletes all the unused files
+        """
+        dir = './files'
+        for f in os.listdir(dir):
+            os.remove(os.path.join(dir, f))
+
+    async def change_status(self, status: str, activity_type=discord.ActivityType.listening):
+        """
+        Updates the bot status (activity)
+        """
+        activity = discord.Activity(name=status, type=activity_type)
+        await self.bot.change_presence(status=discord.Status.online, activity=activity)
+
+    def get_emoji_number(self, number: int):
+        """
+        Gets an emoji number by its queue pos. (NOT READY!)
+        """
+        return (
+            ':one:',
+            ':two:',
+            ':three:',
+            ':four:',
+            ':five:',
+            ':six:',
+            ':seven:',
+            ':eight:',
+            ':nine:',
+            ':keycap_ten:',
+        )[int(number)]
 
     @commands.command()
     async def join(self, ctx, *, channel: discord.VoiceChannel):
@@ -30,34 +71,77 @@ class MusicBot(commands.Cog):
         await channel.connect()
 
     @commands.command()
+    async def h(self, ctx):
+        """
+        Help command
+        """
+
+        await ctx.send(
+        """
+        :page_with_curl: Lista de comandos:
+        **!play**: Reproduce una canción (o es agregada a la lista de espera)
+        **!seek**: Adelanta la canción hasta un tiempo establecido (Formato: 00:00)
+        **!stop**: Detiene completamente la reproducción y limpia la lista de espera
+        **!skip**: Salta a la siguiente canción de la lista
+        **!volume**: Aumenta o disminuye el volumen del bot
+        """
+        )
+
+    @commands.command()
     async def play(self, ctx, *, url: str):
         """
         Play command. If a song is already playing, the given one will be put in queue
         """
         async with ctx.typing():
+            if len(self.song_queue) > 9:
+                return \
+                    await ctx.send(lang.get('QUEUE_MAX_REACHED')) 
             if not self.playing:
                 await self._play_song(ctx, url)
             else:
                 await self.add_to_queue(ctx, url)
 
+    @commands.command()
+    async def list(self, ctx):
+        """
+        Shows the song queue
+        """
+        queue = ""
+
+        if not self.song_queue:
+            return await ctx.send(lang.get('QUEUE_IS_EMPTY'))
+
+        for index, song in enumerate(self.song_queue):
+            queue += f"{self.get_emoji_number(index)} - {song[0].title}\n"
+
+        await ctx.send(lang.get('QUEUE_LIST_MESSAGE').format(queue))
+
     async def add_to_queue(self, ctx, url):
         """
         Adds a song to queue
         """
-        player = await YTDLSource.from_url(url, loop=self.bot.loop)
+
+        try:
+            player = await YTDLSource.from_url(url, loop=self.bot.loop)
+        except:
+            return await self.actual_message.edit(content=lang.get('NOT_FOUND'))
+
         self.song_queue.append([player, url])
-        await ctx.send(f":watch: La canción '{player.title}' fue añadida a la cola")
+        await ctx.send(lang.get('QUEUE_SONG_ADDED').format(player.title))
 
     @commands.command()
-    async def volume(self, ctx, volume: int):
+    async def volume(self, ctx, volume: int=None):
         """
         Changes the bot volume
         """
+
+        if not volume:
+            return await ctx.send(lang.get('ACTUAL_VOLUME').format(int(ctx.voice_client.source.volume * 100)))
         if ctx.voice_client is None:
-            return await ctx.send(":no_entry: Necesitas estar conectado a un canal de voz")
+            return await ctx.send(lang.get('NOT_CONNECTED'))
 
         ctx.voice_client.source.volume = volume / 100
-        await ctx.send(":loud_sound: El volumen ha sido cambiado a {}%".format(volume))
+        await ctx.send(lang.get('VOLUME_CHANGED').format(volume))
 
     @commands.command()
     async def skip(self, ctx):
@@ -65,18 +149,20 @@ class MusicBot(commands.Cog):
         Skips the current song. If no song is playing, then waits to disconnect
         """
         if not self.song_queue:
-            await self._wait_to_disconnect(ctx)
+            return await self._wait_to_disconnect(ctx)
         
         ctx.voice_client.stop()
-        self._play_song(ctx)
+        await self._play_song(ctx)
 
     async def _wait_to_disconnect(self, ctx):
         """
         Wait n seconds until disconnect. Before disconnect, checks if something
         is playing first
         """
+        self.delete_files()
+        await self.bot.change_presence()
         self.playing = False
-        await sleep(5)
+        await sleep(self.waiting_time)
 
         if not self.playing:
             await ctx.voice_client.disconnect()
@@ -98,16 +184,13 @@ class MusicBot(commands.Cog):
         try:
             future.result()
         except:
-            print('WHooops')
+            print('Whooops')
 
     async def _play_song(self, ctx, url=None, seconds=None):
         """
         Plays a song
         """
         player = None
-
-        if not seconds:
-            self.actual_message = await ctx.send('Cargando cancion...')
 
         if seconds and not url:
             self.can_play_next = False
@@ -117,8 +200,15 @@ class MusicBot(commands.Cog):
         if not url and not seconds:
             (player, url) = self.song_queue.pop(0)
 
-        player = player or \
-            await YTDLSource.from_url(url, loop=self.bot.loop, stream=False, timestamp=seconds)
+        if not seconds and url:
+            self.actual_message = await ctx.send(lang.get('LOADING_SONG').format(url))
+
+        try:
+            player = player or \
+                await YTDLSource.from_url(url, loop=self.bot.loop, stream=False, timestamp=seconds)
+        except:
+            self.can_play_next = True
+            return await self.actual_message.edit(content=lang.get('NOT_FOUND'))
 
         ctx.voice_client.play(player, after=lambda e: self.next_song(ctx))
         self.actual_url = url
@@ -126,7 +216,8 @@ class MusicBot(commands.Cog):
         self.playing = True
 
         if not seconds:
-            await self.actual_message.edit(content=f':musical_note: Reproduciendo: {player.title}')
+            await self.change_status(player.title)
+            await self.actual_message.edit(content=lang.get('PLAYING_SONG').format(player.title))
 
     @commands.command()
     async def seek(self, ctx, timestamp: str):
@@ -134,19 +225,19 @@ class MusicBot(commands.Cog):
         Seek with 00:00 format
         """
         if ctx.voice_client is None:
-            return await ctx.send(":no_entry: Necesitas estar conectado a un canal de voz")
+            return await ctx.send(lang.get('NOT_CONNECTED'))
 
         if not self.timestamp_format.match(timestamp):
-            return await ctx.send(":no_entry: El tiempo debe tener formato 00:00")
+            return await ctx.send(lang.get('SEEK_BAD_FORMAT'))
 
         async with ctx.typing():
             time_data = timestamp.split(':')
             seconds = (int(time_data[0]) * 60) + int(time_data[1])
 
-            await self._play_song(ctx, seconds=seconds)
+            await self._play_song(ctx, seconds=seconds or 1)
 
         content = self.actual_message.content.split(" ||", 1)[0]
-        await self.actual_message.edit(content=f'{content} || :fast_forward: Rebobinado hasta {timestamp}')
+        await self.actual_message.edit(content=f'{content} || **[:fast_forward: {timestamp}]**')
 
     @commands.command()
     async def stop(self, ctx):
@@ -157,9 +248,17 @@ class MusicBot(commands.Cog):
         self.song_queue = []
         await self._wait_to_disconnect(ctx)
 
+    @commands.command()
+    async def disconnect(self, ctx):
+        if not self.playing:
+            await ctx.voice_client.disconnect()
+        else:
+            await ctx.send(lang.get('DISCONNECT_WHILE_PLAYING'))
+
     @play.before_invoke
     @skip.before_invoke
     @stop.before_invoke
+    @seek.before_invoke
     @volume.before_invoke
     async def ensure_voice(self, ctx):
         """
@@ -169,8 +268,8 @@ class MusicBot(commands.Cog):
             if ctx.author.voice:
                 await ctx.author.voice.channel.connect()
             else:
-                await ctx.send(":no_entry: Necesitas estar conectado a un canal de voz")
-                raise commands.CommandError(":no_entry: Necesitas estar conectado a un canal de voz")
+                await ctx.send(lang.get('NOT_CONNECTED'))
+                raise commands.CommandError(lang.get('NOT_CONNECTED'))
         elif not self.on_same_channel(ctx):
-            await ctx.send(":no_entry: Necesitas estar en el mismo canal que yo para hacer eso")
-            raise commands.CommandError(":no_entry: Necesitas estar en el mismo canal que yo para hacer eso")
+            await ctx.send(lang.get('NOT_IN_CHANNEL'))
+            raise commands.CommandError(lang.get('NOT_IN_CHANNEL'))

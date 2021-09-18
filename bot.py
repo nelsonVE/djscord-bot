@@ -88,11 +88,13 @@ class MusicBot(commands.Cog):
         )
 
     @commands.command()
-    async def play(self, ctx, *, url: str):
+    async def play(self, ctx, *, url: str=None):
         """
         Play command. If a song is already playing, the given one will be put in queue
         """
         async with ctx.typing():
+            if not url:
+                return await ctx.send(lang.get('SONG_NEEDED')) 
             if len(self.song_queue) > 9:
                 return \
                     await ctx.send(lang.get('QUEUE_MAX_REACHED')) 
@@ -102,10 +104,11 @@ class MusicBot(commands.Cog):
                 await self.add_to_queue(ctx, url)
 
     @commands.command()
-    async def list(self, ctx):
+    async def list(self, ctx, page: str=None):
         """
         Shows the song queue
         """
+        page = int(page) or 0
         queue = ""
 
         if not self.song_queue:
@@ -176,11 +179,9 @@ class MusicBot(commands.Cog):
             return
 
         if not self.song_queue:
-            action = self._wait_to_disconnect(ctx)
+            future = asyncio.run_coroutine_threadsafe(self._wait_to_disconnect(ctx), self.bot.loop)
         else:
-            action = self._play_song(ctx)
-
-        future = asyncio.run_coroutine_threadsafe(action, self.bot.loop)
+            future = asyncio.run_coroutine_threadsafe(self._play_song(ctx), self.bot.loop)
 
         try:
             future.result()
@@ -219,7 +220,7 @@ class MusicBot(commands.Cog):
 
         if not seconds:
             await self.change_status(player.title)
-            await self.actual_message.edit(content=lang.get('PLAYING_SONG').format(player.title))
+            await self.actual_message.edit(content=lang.get('PLAYING_SONG').format(player.title, player.url))
 
     @commands.command()
     async def seek(self, ctx, timestamp: str):

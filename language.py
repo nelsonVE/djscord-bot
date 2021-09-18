@@ -8,8 +8,9 @@ lang = {
     'ACTUAL_VOLUME': ":loud_sound: Mi volumen actual es de **{}%**",
     'VOLUME_CHANGED': ":loud_sound: El volumen ha sido cambiado a **{}%**",
     'LOADING_SONG': ':hourglass_flowing_sand: *Cargando {}...*',
-    'PLAYING_SONG': ':musical_note: **Reproduciendo:** {}',
+    'PLAYING_SONG': ':musical_note: **Reproduciendo:** {} ({})',
     'SEEK_BAD_FORMAT': ":no_entry: El tiempo debe tener formato 00:00",
     'DISCONNECT_WHILE_PLAYING': ":no_entry: No me puedo desconectar mientras reproduzco música",
-    'NOT_FOUND': ":no_entry: Lo siento, no pude encontrar esa canción :(",
+    'NOT_FOUND': ":frowning2: Lo siento, no pude encontrar esa canción",
+    'SONG_NEEDED': ":no_entry: Necesitas especificar una canción"
 }

@@ -123,7 +123,8 @@ class MusicBot(commands.Cog):
 
         try:
             player = await YTDLSource.from_url(url, loop=self.bot.loop)
-        except:
+        except Exception as e:
+            print(e)
             return await self.actual_message.edit(content=lang.get('NOT_FOUND'))
 
         self.song_queue.append([player, url])

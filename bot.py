@@ -99,9 +99,9 @@ class MusicBot(commands.Cog):
                 return \
                     await ctx.send(lang.get('QUEUE_MAX_REACHED')) 
             if not self.playing:
-                await self._play_song(ctx, url, author=ctx.author.name)
+                await self._play_song(ctx, url, played_by=ctx.author.name)
             else:
-                await self.add_to_queue(ctx, url, author=ctx.author.name)
+                await self.add_to_queue(ctx, url, played_by=ctx.author.name)
 
     @commands.command()
     async def list(self, ctx, page: str=0):
@@ -119,7 +119,7 @@ class MusicBot(commands.Cog):
 
         await ctx.send(lang.get('QUEUE_LIST_MESSAGE').format(queue))
 
-    async def add_to_queue(self, ctx, url, author):
+    async def add_to_queue(self, ctx, url, played_by):
         """
         Adds a song to queue
         """
@@ -132,7 +132,7 @@ class MusicBot(commands.Cog):
 
 
         if player:
-            self.song_queue.append([player, url, author])
+            self.song_queue.append([player, url, played_by])
             await ctx.send(lang.get('QUEUE_SONG_ADDED').format(player.title))
         else:
             await ctx.send(lang.get('QUEUE_SONG_FAILED'))

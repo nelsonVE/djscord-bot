@@ -192,6 +192,9 @@ class MusicBot(commands.Cog):
         except:
             print('Whooops')
 
+    async def _get_next_song(self):
+        return self.song_queue.pop(0)
+
     async def _play_song(self, ctx, url=None, seconds=None, played_by=None):
         """
         Plays a song
@@ -207,7 +210,7 @@ class MusicBot(commands.Cog):
             self.actual_message = await ctx.send(lang.get('LOADING_SONG').format(url))
 
         if not url and not seconds:
-            (player, url, played_by) = self.song_queue.pop(0)
+            (player, url, played_by) = await self._get_next_song()
 
         try:
             player = player or \

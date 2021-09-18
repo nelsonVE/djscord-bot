@@ -12,5 +12,6 @@ lang = {
     'SEEK_BAD_FORMAT': ":no_entry: El tiempo debe tener formato 00:00",
     'DISCONNECT_WHILE_PLAYING': ":no_entry: No me puedo desconectar mientras reproduzco música",
     'NOT_FOUND': ":frowning2: Lo siento, no pude encontrar esa canción",
-    'SONG_NEEDED': ":no_entry: Necesitas especificar una canción"
+    'SONG_NEEDED': ":no_entry: Necesitas especificar una canción",
+    'QUEUE_SONG_FAILED': ":frowning2: No he podido añadir esa canción a la lista de espera, inténtalo nuevamente",
 }

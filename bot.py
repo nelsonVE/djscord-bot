@@ -99,16 +99,16 @@ class MusicBot(commands.Cog):
                 return \
                     await ctx.send(lang.get('QUEUE_MAX_REACHED')) 
             if not self.playing:
-                await self._play_song(ctx, url)
+                await self._play_song(ctx, url, author=ctx.author.name)
             else:
-                await self.add_to_queue(ctx, url)
+                await self.add_to_queue(ctx, url, author=ctx.author.name)
 
     @commands.command()
-    async def list(self, ctx, page: str=None):
+    async def list(self, ctx, page: str=0):
         """
         Shows the song queue
         """
-        page = int(page) or 0
+        page = int(page)
         queue = ""
 
         if not self.song_queue:
@@ -119,7 +119,7 @@ class MusicBot(commands.Cog):
 
         await ctx.send(lang.get('QUEUE_LIST_MESSAGE').format(queue))
 
-    async def add_to_queue(self, ctx, url):
+    async def add_to_queue(self, ctx, url, author):
         """
         Adds a song to queue
         """
@@ -130,8 +130,12 @@ class MusicBot(commands.Cog):
             print(e)
             return await self.actual_message.edit(content=lang.get('NOT_FOUND'))
 
-        self.song_queue.append([player, url])
-        await ctx.send(lang.get('QUEUE_SONG_ADDED').format(player.title))
+
+        if player:
+            self.song_queue.append([player, url, author])
+            await ctx.send(lang.get('QUEUE_SONG_ADDED').format(player.title))
+        else:
+            await ctx.send(lang.get('QUEUE_SONG_FAILED'))
 
     @commands.command()
     async def volume(self, ctx, volume: int=None):
@@ -188,7 +192,7 @@ class MusicBot(commands.Cog):
         except:
             print('Whooops')
 
-    async def _play_song(self, ctx, url=None, seconds=None):
+    async def _play_song(self, ctx, url=None, seconds=None, played_by=None):
         """
         Plays a song
         """
@@ -199,11 +203,11 @@ class MusicBot(commands.Cog):
             ctx.voice_client.stop()
             url = self.actual_url
 
-        if not url and not seconds:
-            (player, url) = self.song_queue.pop(0)
-
         if not seconds and url:
             self.actual_message = await ctx.send(lang.get('LOADING_SONG').format(url))
+
+        if not url and not seconds:
+            (player, url, played_by) = self.song_queue.pop(0)
 
         try:
             player = player or \
@@ -220,7 +224,7 @@ class MusicBot(commands.Cog):
 
         if not seconds:
             await self.change_status(player.title)
-            await self.actual_message.edit(content=lang.get('PLAYING_SONG').format(player.title, player.url))
+            await self.actual_message.edit(content=lang.get('PLAYING_SONG').format(player.title, played_by))
 
     @commands.command()
     async def seek(self, ctx, timestamp: str):

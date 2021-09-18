@@ -207,7 +207,8 @@ class MusicBot(commands.Cog):
         try:
             player = player or \
                 await YTDLSource.from_url(url, loop=self.bot.loop, stream=False, timestamp=seconds)
-        except:
+        except Exception as e:
+            print(e)
             self.can_play_next = True
             return await self.actual_message.edit(content=lang.get('NOT_FOUND'))
 

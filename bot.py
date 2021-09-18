@@ -1,5 +1,6 @@
 import re
 import os
+import logging
 
 import asyncio
 import discord
@@ -9,6 +10,8 @@ from ytdl import YTDLSource
 
 from language import lang
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 class MusicBot(commands.Cog):
     def __init__(self, bot):
@@ -75,6 +78,7 @@ class MusicBot(commands.Cog):
         """
         Help command
         """
+        logger.debug("help command called")
 
         await ctx.send(
         """
@@ -92,6 +96,8 @@ class MusicBot(commands.Cog):
         """
         Play command. If a song is already playing, the given one will be put in queue
         """
+        logger.debug("play command called")
+
         async with ctx.typing():
             if not url:
                 return await ctx.send(lang.get('SONG_NEEDED')) 
@@ -108,6 +114,8 @@ class MusicBot(commands.Cog):
         """
         Shows the song queue
         """
+        logger.debug("list command called")
+
         page = int(page)
         queue = ""
 
@@ -142,6 +150,7 @@ class MusicBot(commands.Cog):
         """
         Changes the bot volume
         """
+        logger.debug("volume command called")
 
         if not volume:
             return await ctx.send(lang.get('ACTUAL_VOLUME').format(int(ctx.voice_client.source.volume * 100)))
@@ -156,6 +165,8 @@ class MusicBot(commands.Cog):
         """
         Skips the current song. If no song is playing, then waits to disconnect
         """
+        logger.debug("skip command called")
+
         if not self.song_queue:
             return await self._wait_to_disconnect(ctx)
         
@@ -193,6 +204,7 @@ class MusicBot(commands.Cog):
             print('Whooops')
 
     async def _get_next_song(self):
+        logger.debug('Popping from list!')
         return self.song_queue.pop(0)
 
     async def _play_song(self, ctx, url=None, seconds=None, played_by=None):
@@ -234,6 +246,8 @@ class MusicBot(commands.Cog):
         """
         Seek with 00:00 format
         """
+        logger.debug("seek command called")
+
         if ctx.voice_client is None:
             return await ctx.send(lang.get('NOT_CONNECTED'))
 
@@ -254,6 +268,8 @@ class MusicBot(commands.Cog):
         """
         Stops the bot, cleans the queue and waits to disconnect
         """
+        logger.debug("stop command called")
+
         ctx.voice_client.stop()
         self.song_queue = []
         await self._wait_to_disconnect(ctx)
@@ -261,6 +277,7 @@ class MusicBot(commands.Cog):
     @commands.command()
     async def disconnect(self, ctx):
         if not self.playing:
+            logger.info('Bot disconnected')
             await ctx.voice_client.disconnect()
         else:
             await ctx.send(lang.get('DISCONNECT_WHILE_PLAYING'))
